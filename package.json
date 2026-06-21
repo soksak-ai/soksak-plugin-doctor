@@ -1,0 +1,21 @@
+{
+  "name": "soksak-plugin-doctor",
+  "version": "0.0.1",
+  "description": "soksak plugin integrity gate — checks a plugin against the core-published contract (theme variables, permissions, naming). Run before publishing; non-zero exit blocks.",
+  "type": "module",
+  "bin": {
+    "soksak-plugin-doctor": "bin/doctor.mjs"
+  },
+  "exports": {
+    ".": "./src/check.mjs"
+  },
+  "files": ["bin", "src", "contract.json"],
+  "scripts": {
+    "test": "vitest run"
+  },
+  "repository": "https://github.com/soksak-ai/soksak-plugin-doctor.git",
+  "license": "MIT",
+  "devDependencies": {
+    "vitest": "^2.1.8"
+  }
+}
