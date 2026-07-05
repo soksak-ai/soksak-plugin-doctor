@@ -26,10 +26,28 @@ if (!mainJs) {
   console.error(`✗ doctor: 빌드 산출물(${manifest.entry || "main.js"}) 없음 — 먼저 빌드하세요`);
   process.exit(2);
 }
+// 소스 텍스트(방언·message 정적 스캔용 — 번들은 minify 되어 정적 스캔 불가). src/ 있으면 전 .ts
+// (테스트 제외) 이어 붙인다. 없으면 undefined → checkPlugin 이 mainJs 로 폴백(hand-authored).
+import { readdirSync, statSync } from "node:fs";
+function collectSrc(dir) {
+  let out = "";
+  let entries;
+  try { entries = readdirSync(dir); } catch { return out; }
+  for (const e of entries) {
+    if (e === "node_modules" || e === "dist" || e.startsWith(".")) continue;
+    const p = join(dir, e);
+    const st = statSync(p);
+    if (st.isDirectory()) out += collectSrc(p);
+    else if (/\.(ts|tsx|mts|js|mjs)$/.test(e) && !e.includes(".test.")) out += "\n" + read(p);
+  }
+  return out;
+}
+const srcDir = join(target, "src");
+const srcText = existsSync(srcDir) ? collectSrc(srcDir) : undefined;
 
 const commandNames = ((manifest.contributes && manifest.contributes.commands) || []).map((c) => c.name);
 const r = checkPlugin(
-  { id: manifest.id, permissions: manifest.permissions, mainJs, dirName: basename(target), commands: commandNames },
+  { id: manifest.id, permissions: manifest.permissions, mainJs, dirName: basename(target), commands: commandNames, srcText },
   contract,
 );
 

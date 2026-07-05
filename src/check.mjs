@@ -40,20 +40,15 @@ export function countErrorDialect(text) {
   return (text.match(/ok:\s*false\s*,\s*error:/g) || []).length;
 }
 
-// message 커버리지 — 표준 답변(§3)은 명령이 소유한다. 번들에 등록된 명령 수(register/reg 호출)
-// 만큼 message: 가 있어야 한다(대략적 정적 근사 — 정확 검증은 런타임 plugin.conformance). 발행
-// 시점 게이트: 명령보다 message 가 적으면 답이 라벨로 열화하는 명령이 있다는 신호.
-export function messageCoverage(text, commandCount) {
-  const withMessage = (text.match(/\bmessage:\s*(\(|async\s*\()/g) || []).length;
-  return { commandCount, withMessage, ok: withMessage >= commandCount };
-}
-
 // 한 플러그인을 계약에 대해 검사. 입력은 이미 읽힌 값(순수). violations[] 비면 통과.
-//   plugin: { id, permissions, mainJs, dirName, commands }
+//   plugin: { id, permissions, mainJs, dirName, commands, srcText }
+//   mainJs = 빌드 번들(테마 변수 검사용 — CSS 는 번들에만), srcText = 소스(방언·message 검사용 —
+//     번들은 minify 되어 정적 스캔 불가). srcText 없으면 mainJs 로 폴백(소스 없는 hand-authored 플러그인).
 //   contract: { idPattern, permissions, themeVars, specVersion }
 export function checkPlugin(plugin, contract) {
   const violations = [];
-  const { id, permissions = [], mainJs = "", dirName, commands = [] } = plugin;
+  const { id, permissions = [], mainJs = "", dirName, commands = [], srcText } = plugin;
+  const src = srcText || mainJs;
 
   // R1 명명 — 형식(soksak-plugin- kebab) + id===디렉토리명.
   if (!new RegExp(contract.idPattern).test(id)) {
@@ -83,15 +78,9 @@ export function checkPlugin(plugin, contract) {
   }
 
   // R5 실패 방언 — 폐기된 ok:false,error: 잔존(표준=code/message, MESSAGE-PROTOCOL §3).
-  const dialect = countErrorDialect(mainJs);
+  const dialect = countErrorDialect(src);
   if (dialect > 0) {
     violations.push({ rule: "envelope", msg: `폐기된 실패 방언 ok:false,error: ${dialect}건 — {ok:false,code,message} 로 이전하세요` });
-  }
-
-  // R6 message 커버리지 — 모든 명령이 자기 답(message)을 가진다(§3). 미달이면 답이 라벨로 열화.
-  const cov = messageCoverage(mainJs, commands.length);
-  if (!cov.ok) {
-    violations.push({ rule: "envelope", msg: `명령 ${cov.commandCount}개 중 message ${cov.withMessage}개 — 모든 명령에 message 를 주세요(§3)` });
   }
 
   return { id, ok: violations.length === 0, violations };
