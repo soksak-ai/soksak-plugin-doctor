@@ -40,6 +40,14 @@ export function countErrorDialect(text) {
   return (text.match(/ok:\s*false\s*,\s*error:/g) || []).length;
 }
 
+// message 커버리지 — 표준 답변(§3)은 명령이 소유한다. 번들에 등록된 명령 수(register/reg 호출)
+// 만큼 message: 가 있어야 한다(대략적 정적 근사 — 정확 검증은 런타임 plugin.conformance). 발행
+// 시점 게이트: 명령보다 message 가 적으면 답이 라벨로 열화하는 명령이 있다는 신호.
+export function messageCoverage(text, commandCount) {
+  const withMessage = (text.match(/\bmessage:\s*(\(|async\s*\()/g) || []).length;
+  return { commandCount, withMessage, ok: withMessage >= commandCount };
+}
+
 // 한 플러그인을 계약에 대해 검사. 입력은 이미 읽힌 값(순수). violations[] 비면 통과.
 //   plugin: { id, permissions, mainJs, dirName, commands }
 //   contract: { idPattern, permissions, themeVars, specVersion }
@@ -78,6 +86,12 @@ export function checkPlugin(plugin, contract) {
   const dialect = countErrorDialect(mainJs);
   if (dialect > 0) {
     violations.push({ rule: "envelope", msg: `폐기된 실패 방언 ok:false,error: ${dialect}건 — {ok:false,code,message} 로 이전하세요` });
+  }
+
+  // R6 message 커버리지 — 모든 명령이 자기 답(message)을 가진다(§3). 미달이면 답이 라벨로 열화.
+  const cov = messageCoverage(mainJs, commands.length);
+  if (!cov.ok) {
+    violations.push({ rule: "envelope", msg: `명령 ${cov.commandCount}개 중 message ${cov.withMessage}개 — 모든 명령에 message 를 주세요(§3)` });
   }
 
   return { id, ok: violations.length === 0, violations };

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { checkPlugin, findGhostThemeVars, findStutterCommands, countErrorDialect } from "../src/check.mjs";
+import { checkPlugin, findGhostThemeVars, findStutterCommands, countErrorDialect, messageCoverage } from "../src/check.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const contract = JSON.parse(readFileSync(join(here, "..", "contract.json"), "utf8"));
@@ -61,5 +61,12 @@ describe("checkPlugin — 무결성 게이트", () => {
     expect(countErrorDialect('return { ok: false, code: "E", message: "m" }')).toBe(0);
     const r = checkPlugin({ ...good, mainJs: 'return { ok: false, error: "nope" }' }, contract);
     expect(r.violations.some((v) => v.rule === "envelope")).toBe(true);
+  });
+
+  it("R6 message 커버리지 — 명령보다 message 가 적으면 envelope 위반", () => {
+    expect(messageCoverage("message: (d) => x  message: () => y", 2).ok).toBe(true);
+    expect(messageCoverage("message: (d) => x", 2).ok).toBe(false);
+    const r = checkPlugin({ ...good, commands: ["a", "b"], mainJs: "message: (d) => 1" }, contract);
+    expect(r.violations.some((v) => v.rule === "envelope" && v.msg.includes("message"))).toBe(true);
   });
 });
