@@ -25,12 +25,27 @@ export function findGhostThemeVars(text, themeVars, themeVocab = []) {
   return [...ghosts].sort();
 }
 
+// 명령명이 플러그인 id 의 도메인 토큰과 정확 중복하는지(NAMING §1). id=soksak-plugin-<도메인>,
+// 명령 첫 세그먼트가 도메인 토큰과 exact 일치면 동어반복(예: agents-issue-create.create). 축약
+// 네임스페이스(clipboard→clip.*)는 exact 아니라 허용. 반환 = 위반 명령명 목록.
+export function findStutterCommands(id, commands = []) {
+  const domain = id.replace(/^soksak-plugin-/, "");
+  const tokens = new Set(domain.split("-"));
+  return commands.filter((name) => tokens.has(String(name).split(".")[0]));
+}
+
+// 폐기된 실패 방언(ok:false,error:) 정적 스캔 — 표준은 {ok:false,code,message}(MESSAGE-PROTOCOL §3).
+// 번들 텍스트에서 반환형 경계의 error: 를 센다(catch 반환의 일부 포함 — 저자가 code/message 로 이전할 신호).
+export function countErrorDialect(text) {
+  return (text.match(/ok:\s*false\s*,\s*error:/g) || []).length;
+}
+
 // 한 플러그인을 계약에 대해 검사. 입력은 이미 읽힌 값(순수). violations[] 비면 통과.
-//   plugin: { id, permissions, mainJs, dirName }
+//   plugin: { id, permissions, mainJs, dirName, commands }
 //   contract: { idPattern, permissions, themeVars, specVersion }
 export function checkPlugin(plugin, contract) {
   const violations = [];
-  const { id, permissions = [], mainJs = "", dirName } = plugin;
+  const { id, permissions = [], mainJs = "", dirName, commands = [] } = plugin;
 
   // R1 명명 — 형식(soksak-plugin- kebab) + id===디렉토리명.
   if (!new RegExp(contract.idPattern).test(id)) {
@@ -52,6 +67,17 @@ export function checkPlugin(plugin, contract) {
   const ghosts = findGhostThemeVars(mainJs, contract.themeVars, contract.themeVocab);
   for (const g of ghosts) {
     violations.push({ rule: "theme", msg: `유령 테마 변수 --${g} (코어가 주지 않음 → 폴백색, 테마 미적용)` });
+  }
+
+  // R4 명명 중복 — 명령 세그먼트가 플러그인 도메인 토큰과 동어반복(NAMING §1).
+  for (const name of findStutterCommands(id, commands)) {
+    violations.push({ rule: "naming", msg: `명령 "${name}" 이 도메인 토큰과 중복 — 세그먼트를 도메인과 달리 지으세요` });
+  }
+
+  // R5 실패 방언 — 폐기된 ok:false,error: 잔존(표준=code/message, MESSAGE-PROTOCOL §3).
+  const dialect = countErrorDialect(mainJs);
+  if (dialect > 0) {
+    violations.push({ rule: "envelope", msg: `폐기된 실패 방언 ok:false,error: ${dialect}건 — {ok:false,code,message} 로 이전하세요` });
   }
 
   return { id, ok: violations.length === 0, violations };

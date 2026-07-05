@@ -27,8 +27,9 @@ if (!mainJs) {
   process.exit(2);
 }
 
+const commandNames = ((manifest.contributes && manifest.contributes.commands) || []).map((c) => c.name);
 const r = checkPlugin(
-  { id: manifest.id, permissions: manifest.permissions, mainJs, dirName: basename(target) },
+  { id: manifest.id, permissions: manifest.permissions, mainJs, dirName: basename(target), commands: commandNames },
   contract,
 );
 
