@@ -15,7 +15,10 @@
     "notify",
     "process",
     "programs",
+    "pty",
+    "schedule",
     "secrets",
+    "sidecar",
     "storage",
     "terminal",
     "terminal:read",
@@ -24,13 +27,15 @@
     "ui:overlay:pane",
     "ui:overlay:screen",
     "ui:statusbar",
-    "ui:titlebar"
+    "ui:titlebar",
+    "webview"
   ],
   "themeVars": [
     "acc",
     "accbg",
     "amb",
     "app-font",
+    "app-font-size",
     "bd",
     "bd-soft",
     "bg",
