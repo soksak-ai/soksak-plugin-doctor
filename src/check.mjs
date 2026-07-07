@@ -25,13 +25,28 @@ export function findGhostThemeVars(text, themeVars, themeVocab = []) {
   return [...ghosts].sort();
 }
 
-// 명령명이 플러그인 id 의 도메인 토큰과 정확 중복하는지(NAMING §1). id=soksak-plugin-<도메인>,
-// 명령 첫 세그먼트가 도메인 토큰과 exact 일치면 동어반복(예: agents-issue-create.create). 축약
-// 네임스페이스(clipboard→clip.*)는 exact 아니라 허용. 반환 = 위반 명령명 목록.
+// 명령명이 플러그인 id 의 도메인 토큰을 재진술하는지(NAMING §1, stutter). 전체 이름
+// plugin.<id>.<command> 가 도메인을 이미 한 번 말한다 — 이름 안에서 다시 말하지 마라.
+// id 토큰 = id 에서 soksak-plugin- 접두 제거 후 '-' 로 분할(design-astryx → {design, astryx}).
+// 이름 세그먼트는 '.' 로 분할. 점이 있으면 첫 세그먼트가 네임스페이스, 없으면 이름 전체가 bare.
+//   점 네임스페이스: 첫 세그먼트가 id 토큰과 exact 이거나, (첫 세그먼트 길이 >= 3 이고 토큰이 첫
+//     세그먼트로 시작하거나 첫 세그먼트가 토큰으로 시작) 이면 위반 — 잘라낸/늘린 도메인도 stutter.
+//   bare: id 토큰과 exact 일 때만 위반(playbox 의 bare 'play' 는 동사 자체라 합법).
+// 점 네임스페이스는 조작 대상 객체(node.*, page.*, command.*)만 이름한다 — 플러그인 자신을 이름하지 마라.
+// 반환 = 위반 명령명 목록.
 export function findStutterCommands(id, commands = []) {
-  const domain = id.replace(/^soksak-plugin-/, "");
-  const tokens = new Set(domain.split("-"));
-  return commands.filter((name) => tokens.has(String(name).split(".")[0]));
+  const tokens = id.replace(/^soksak-plugin-/, "").split("-");
+  const isStutter = (raw) => {
+    const name = String(raw);
+    const dotted = name.includes(".");
+    const first = dotted ? name.slice(0, name.indexOf(".")) : name;
+    for (const token of tokens) {
+      if (first === token) return true;
+      if (dotted && first.length >= 3 && (token.startsWith(first) || first.startsWith(token))) return true;
+    }
+    return false;
+  };
+  return commands.filter(isStutter);
 }
 
 // 폐기된 실패 방언(ok:false,error:) 정적 스캔 — 표준은 {ok:false,code,message}(MESSAGE-PROTOCOL §3).

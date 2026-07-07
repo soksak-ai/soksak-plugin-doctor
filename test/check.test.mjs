@@ -48,12 +48,37 @@ describe("checkPlugin — 무결성 게이트", () => {
     expect(findGhostThemeVars("var(--fg) var(--text)", contract.themeVars, contract.themeVocab)).toEqual(["text"]);
   });
 
-  it("R4 명령명이 도메인 토큰과 중복하면 naming 위반", () => {
-    const r = checkPlugin({ ...good, commands: ["create", "ir.import"] }, contract);
-    // good.id 도메인에 따라 달라지므로 순수 함수로도 확인
+  it("R4 점 네임스페이스가 id 토큰의 축약/확장이면 stutter 로 잡는다", () => {
+    // clip ⊂ clipboard, folder ⊂ folderpop — 잘라낸 도메인도 restating 이라 위반.
+    expect(findStutterCommands("soksak-plugin-clipboard", ["clip.copy", "clip.paste"])).toEqual([
+      "clip.copy",
+      "clip.paste",
+    ]);
+    expect(findStutterCommands("soksak-plugin-folderpop", ["folder.pop", "folder.pin"])).toEqual([
+      "folder.pop",
+      "folder.pin",
+    ]);
+  });
+
+  it("R4 점 네임스페이스가 조작 대상 객체명이면 통과", () => {
+    // node.*/page.* 는 플러그인이 아니라 다루는 객체를 이름한다 — 도메인 재진술 아님.
+    expect(findStutterCommands("soksak-plugin-kanban", ["node.add", "node.move"])).toEqual([]);
+    // 길이 3 미만 첫 세그먼트는 축약 매칭에서 제외(오탐 방지).
+    expect(findStutterCommands("soksak-plugin-file-tree", ["ir.import"])).toEqual([]);
+  });
+
+  it("R4 bare 이름은 id 토큰과 정확히 같을 때만 잡는다", () => {
+    // playbox 의 bare 'play' 는 동사 자체 — 네임스페이스 아니라서 합법.
+    expect(findStutterCommands("soksak-plugin-playbox", ["play", "pause"])).toEqual([]);
+    // agents-issue-create 의 bare 'create' 는 id 토큰과 exact — 위반.
     expect(findStutterCommands("soksak-plugin-agents-issue-create", ["create"])).toEqual(["create"]);
-    expect(findStutterCommands("soksak-plugin-clipboard", ["clip.copy", "clip.paste"])).toEqual([]);
-    void r;
+  });
+
+  it("R4 위반은 checkPlugin 을 통해 naming 위반으로 표면화", () => {
+    // good.id = soksak-plugin-file-tree → 토큰 {file, tree}. bare 'tree' 는 exact 위반.
+    const r = checkPlugin({ ...good, commands: ["tree"] }, contract);
+    expect(r.ok).toBe(false);
+    expect(r.violations.some((v) => v.rule === "naming")).toBe(true);
   });
 
   it("R5 폐기된 실패 방언(ok:false,error:)을 envelope 위반으로 잡는다", () => {
