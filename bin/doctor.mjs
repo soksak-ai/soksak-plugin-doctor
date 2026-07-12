@@ -21,8 +21,12 @@ if (!manifestRaw) {
   process.exit(2);
 }
 const manifest = JSON.parse(manifestRaw);
+// 서비스 플러그인(entry:null + service 선언 — 웹뷰 진입 없이 로직을 사이드카 서비스가 소유,
+// docs/PLUGIN-SERVICE.md)은 웹뷰 진입 산출물이 없다. entry 부재는 빌드 누락이 아니라 부류의
+// 정의다 — main.js 를 요구하지 않고(모든 플러그인에 진입 산출물 가정 금지) 매니페스트·src 로 검사한다.
+const isService = manifest.entry === null && manifest.service != null;
 const mainJs = read(join(target, manifest.entry || "main.js"));
-if (!mainJs) {
+if (!mainJs && !isService) {
   console.error(`✗ doctor: 빌드 산출물(${manifest.entry || "main.js"}) 없음 — 먼저 빌드하세요`);
   process.exit(2);
 }
